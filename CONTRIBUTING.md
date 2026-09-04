@@ -77,6 +77,17 @@ pre-commit installed at .git/hooks/pre-commit
 git commit -m 'Message' --no-verify
 ```
 
+### The following rule may cause conflicts when used with the formatter: `COM812`.
+При использовании `rull format` может вызывать конфликты с форматером `COM812`. Можно добавить в игнор в файле ruff.toml
+```
+[lint]
+
+ignore = [
+    "COM812",
+]
+```
+
+
 ## Как вести разработку
 
 Код проекта находится в папке `/src`.
@@ -86,7 +97,7 @@ git commit -m 'Message' --no-verify
 ```shell
 $ fastapi dev src/main.py
 ```
-
+.
 Проект будет работать по адресу http://127.0.0.1:8000/
 
 ### Как установить python-пакет в виртуальное окружение
