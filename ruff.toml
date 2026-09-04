@@ -71,6 +71,7 @@ ignore = [
     "PLR6301", # Method could be a function, class method, or static method
     "PLC0415", # `import` should be at the top-level of a file
     "B008", # Do not perform function call in argument defaults
+    "COM812"
 ]
 
 # Allow unused variables when underscore-prefixed.

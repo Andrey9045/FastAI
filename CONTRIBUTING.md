@@ -33,6 +33,11 @@ Built for Windows32
 
 Все дальнейшие команды запускать из-под **git bash**.
 
+### Схемы инсталяций бэкенда
+
+- Ссылка на [локальную инсталяцию](https://gitlab.dvmn.org/root/fastapi-articles/-/wikis/fastai/backend_local_installation.drawio.png)
+- Ссылка на [prod инсталяцию](https://gitlab.dvmn.org/root/fastapi-articles/-/wikis/fastai/backend_prod_installation.drawio.png)
+- Ссылка на [декомпозицию беккенда по подсистемам](https://gitlab.dvmn.org/root/fastapi-articles/-/wikis/fastai/backend_decomposition.drawio.png)
 ### Создание виртуального окружения для работы с IDE
 
 IDE для корректной работы подсказок необходимо развернуть виртуальное окружение со всеми установленными зависимостями.
