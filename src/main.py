@@ -1,9 +1,6 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
-
-@app.get("/", response_class=HTMLResponse)
-def get_page():
-    return "<h1>Hello world!!! I`m best programmer!!!</h1>"
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

@@ -132,3 +132,25 @@ $ uv lock
 $ make list
 ...
 ```
+### Краткая инструкция по развертыванию фронтенда в локальной инсталяции
+
+- Скачайте архив [фронтенда](https://dvmn.org/filer/canonical/1750917110/1035/)
+- Распокуйте архив в корень проекта
+- В папке frontend добавьте `frontend-settings.json`
+```
+{
+	"backendBaseUrl": "/frontend-api"
+}
+
+```
+- Добавьте в main.py следующий код
+```
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI()
+
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+
+```
+- Добавьте `/frontend/` в .gitignore
