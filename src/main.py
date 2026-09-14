@@ -1,16 +1,41 @@
 import asyncio
+import time
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+import anyio
+from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from html_page_generator import AsyncDeepseekClient, AsyncPageGenerator, AsyncUnsplashClient
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
 from pydantic.alias_generators import to_camel
 
+from env_settings import AppSettings
+
 MEDIA_DIR = Path(__file__).parent / "media"
-app = FastAPI(title="My FastAI", description="API для генерации")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Приложение стартует")
+    settings = AppSettings()
+    async with (
+        AsyncUnsplashClient.setup(settings.unsplash.api_key.get_secret_value(), timeout=settings.unsplash.timeout),
+        AsyncDeepseekClient.setup(
+            settings.deepseek.api_key.get_secret_value(),
+            settings.deepseek.base_url,
+            settings.deepseek.model
+        )
+    ):
+        app.state.settings = settings
+        yield
+    print("Приложение останавливается...")
+
+
+app = FastAPI(lifespan=lifespan, title="My FastAI", description="API для генерации")
 
 SiteTitle = Annotated[str, StringConstraints(max_length=100)]
 
@@ -21,6 +46,7 @@ class UserProfile(BaseModel):
         populate_by_name=True,
         json_schema_extra={
             "examples": [
+
                 {
                     "email": "example@example.com",
                     "isActive": True,
@@ -130,18 +156,21 @@ def mock_my_sites():
     "/frontend-api/sites/{site_id}",
     response_model=CreateSiteResponse,
     summary="Получить сайт",
-    response_description="Сайт по ID"
+    response_description="Сайт по ID",
 )
-def mock_get_site(site_id: int):
+def mock_get_site(site_id: int, http_request: Request):
+    last = getattr(http_request.app.state, "last_generated", {})
+    ts = getattr(http_request.app.state, "last_generation_ts", 0)
+
     mock_site_data = {
-        "createdAt": "2025-06-15T18:29:56+00:00",
-        "htmlCodeDownloadUrl": "http://127.0.0.1:8000/media/index.html?response-content-disposition=attachment",
-        "htmlCodeUrl": "http://127.0.0.1:8000/media/index.html",
+        "createdAt": last.get("created_at", "2025-06-15T18:29:56+00:00"),
+        "htmlCodeDownloadUrl": "/media/download/index.html",
+        "htmlCodeUrl": f"/media/index.html?v={ts}",
         "id": site_id,
-        "prompt": "Сайт любителей играть в домино",
-        "screenshotUrl": "https://google.com",
-        "title": "Фан клуб Домино",
-        "updatedAt": "2025-06-15T18:29:56+00:00"
+        "prompt": last.get("prompt", "Сайт не сгенерирован"),
+        "screenshotUrl": "/media/index.png",
+        "title": last.get("title", "Без названия"),
+        "updatedAt": last.get("updated_at", "2025-06-15T18:29:56+00:00"),
     }
     return CreateSiteResponse.model_validate(mock_site_data)
 
@@ -157,7 +186,7 @@ def mock_create_site(request: CreateSiteRequest):
         "createdAt": "2025-06-15T18:29:56+00:00",
         "htmlCodeDownloadUrl": "http://127.0.0.1:8000/media/index.html?response-content-disposition=attachment",
         "htmlCodeUrl": "http://127.0.0.1:8000/media/index.html",
-        "id": 1,
+        "id": 37,
         "prompt": request.prompt,
         "screenshotUrl": "https://google.com",
         "title": "dfgdfssdfh",
@@ -166,13 +195,27 @@ def mock_create_site(request: CreateSiteRequest):
     return CreateSiteResponse.model_validate(mock_site_data)
 
 
-async def generate_chunks(file_path, chunk_size: int = 256):
-    if not file_path.exists():
-        raise HTTPException(status_code=400, detail="Invalid file paath")
-    with open(file_path, encoding="utf-8") as file:
-        while chunk := file.read(chunk_size):
-            await asyncio.sleep(0.1)
+async def generate_chunks(prompt: str, debug: bool, request: Request):
+    generator = AsyncPageGenerator(debug_mode=debug)
+    try:
+        async for chunk in generator(prompt):
             yield chunk
+    except asyncio.CancelledError:
+        print("Генерация прервана клиентом")
+        raise
+    except Exception as e:
+        yield f"\n[ОШИБКА] {type(e).__name__}: {e}\n"
+        return
+    with anyio.CancelScope(shield=True):
+        output_path = MEDIA_DIR / "index.html"
+        output_path.write_text(generator.html_page.html_code, encoding="utf-8")
+        request.app.state.last_generated = {
+            "title": generator.html_page.title or "Без названия",
+            "prompt": prompt,
+            "created_at": "2025-06-15T18:29:56+00:00",
+            "updated_at": "2025-06-15T18:29:56+00:00",
+        }
+        request.app.state.last_generation_ts = int(time.time())
 
 
 @app.post(
@@ -180,10 +223,11 @@ async def generate_chunks(file_path, chunk_size: int = 256):
     summary="Трансляция сайта по мере генерации",
     response_description="Генерация сайта"
 )
-async def mock_generate_site(site_id: int, request: GenerateHTMLRequest):
-    file_path = Path(__file__).parent / "media" / "index.html"
+async def mock_generate_site(site_id: int, payload: GenerateHTMLRequest, request: Request):
+    prompt = payload.prompt.strip()
+    settings = request.app.state.settings
     return StreamingResponse(
-        content=generate_chunks(file_path, chunk_size=256),
+        content=generate_chunks(prompt, debug=settings.debug, request=request),
         media_type="text/plain; charset=utf-8"
     )
 

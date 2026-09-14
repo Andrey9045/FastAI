@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Домино Верстай</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            overflow-x: hidden;
+        }
+        .parallax {
+            background-image: url('https://images.unsplash.com/photo-1633356122544-f134324a6cee');
+            height: 100%;
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+            position: relative;
+        }
+        .header {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            animation: fadeIn 2s ease-in-out;
+        }
+        .header h1 {
+            font-size: 4em;
+            margin: 0;
+            animation: slideDown 1.5s ease-in-out;
+        }
+        .header p {
+            font-size: 1.5em;
+            animation: slideUp 1.5s ease-in-out;
+        }
+        .content {
+            padding: 20px;
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+        .content h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            animation: fadeIn 2s ease-in-out;
+        }
+        .content p {
+            font-size: 1.2em;
+            line-height: 1.6;
+            animation: fadeIn 2s ease-in-out;
+        }
+        .footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 10px 0;
+            position: relative;
+            bottom: 0;
+            width: 100%;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideDown {
+            from { transform: translateY(-100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="parallax">
+        <div class="header">
+            <h1>Домино Верстай</h1>
+            <p>Сайт для любителей домино</p>
+        </div>
+    </div>
+    <div class="content">
+        <h2>Добро пожаловать!</h2>
+        <p>Здесь вы найдете все, что нужно для игры в домино: правила, стратегии и многое другое.</p>
+    </div>
+    <div class="footer">
+        <p>&copy; 2026 Домино Верстай. Все права защищены.</p>
+    </div>
+</body>
+</html>
