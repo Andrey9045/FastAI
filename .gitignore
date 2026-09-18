@@ -8,3 +8,4 @@ tmp*
 .DS_Store
 /frontend/
 /src/media/index.html
+/src/media/index.png
