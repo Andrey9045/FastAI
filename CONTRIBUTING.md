@@ -58,7 +58,31 @@ $ uv sync
 $ source .venv/bin/activate  # для Linux
 $ .\.venv\Scripts\activate  # Для Windows
 ```
+### Настройка переменных окружения
+В корне проекта создайте файл .env положите в него следующие переменные
+```
+DEBUG=True
+DEEPSEEK__BASE_URL=https://openai.bothub.chat/v1
+DEEPSEEK__API_KEY=API токен дипсик или аналога
+DEEPSEEK__MODEL=deepseek-chat
+DEEPSEEK__MAX_CONNECTIONS=Максимальное кол-во соед с API DEEPSEEK
+UNSPLASH__API_KEY=токен UNSPLASH
+UNSPLASH__MAX_CONNECTIONS=Максимальное кол-во соед c UNSPLASH
+UNSPLASH__TIMEOUT=Таймаут
+S3__BUCKET=название бакета
+S3__ENDPOINT_URL=http://127.0.0.1:9000
+S3__ACCESS_KEY=Ключ доступа
+S3__SECRET_KEY=Секретный ключ
+S3__CONNECT_TIMEOUT=Время соединения
+S3__READ_TIMEOUT=Время чтения
+S3__MAC_CONNECTIONS=Максимальное кол-во соед
 
+GOTENBERG__URL=https://demo.gotenberg.dev
+GOTENBERG__WIDTCH=1000(Ширина скрина)
+GOTENBERG__FORMAT="png" формат
+GOTENBERG__WAIT_DELAY=время ожидания завершения анимаций на html-странице. Рекомедуемая разница между таймаутом и временем ожидания 2-5сек
+GOTENBERG__TIMEOUT=таймаут
+```
 ### Настройка pre-commit хуков
 
 В репозитории используются хуки [pre-commit](https://pre-commit.com/), чтобы автоматически запускать линтеры и автотесты.
@@ -123,6 +147,15 @@ $ uv remove beautifulsoup4
 ```shell
 $ uv lock
 ```
+### Проверка кода ruff
+```
+ruff check
+```
+Для исправления выявленных ошибок
+```
+ruff check --fix
+```
+
 
 ### Команды для быстрого запуска с помощью make
 
