@@ -2,20 +2,22 @@ import asyncio
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
-from pathlib import Path
 from typing import Annotated
 
+import aioboto3
 import anyio
+import httpx
+from aiobotocore.config import AioConfig
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from furl import furl
+from gotenberg_api import GotenbergServerError, ScreenshotHTMLRequest
 from html_page_generator import AsyncDeepseekClient, AsyncPageGenerator, AsyncUnsplashClient
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
 from pydantic.alias_generators import to_camel
 
 from env_settings import AppSettings
-
-MEDIA_DIR = Path(__file__).parent / "media"
 
 
 @asynccontextmanager
@@ -115,6 +117,79 @@ class SitesListResponse(BaseModel):
     sites: list[CreateSiteResponse]
 
 
+async def upload_html_s3(html_code: str, settings, filename: str = "index.html"):
+    session = aioboto3.Session()
+    config = AioConfig(
+        max_pool_connections=settings.s3.max_pool_connections,
+        connect_timeout=settings.s3.connect_timeout,
+        read_timeout=settings.s3.read_timeout,
+    )
+    async with session.client(
+        "s3",
+        endpoint_url=settings.s3.endpoint_url,
+        aws_access_key_id=settings.s3.access_key,
+        aws_secret_access_key=settings.s3.secret_key,
+        config=config,
+    ) as client:
+        await client.put_object(
+            Bucket=settings.s3.bucket,
+            Key=filename,
+            Body=html_code.encode("utf-8"),
+            ContentType="text/html",
+            ContentDisposition="inline",
+        )
+
+
+async def take_screenshot(html_code: str, settings):
+    try:
+        async with httpx.AsyncClient(
+            base_url=settings.gotenberg.url,
+            timeout=settings.gotenberg.timeout,
+        ) as client:
+            screenshot_bytes = await ScreenshotHTMLRequest(
+                index_html=html_code,
+                width=settings.gotenberg.width,
+                format=settings.gotenberg.format,
+                wait_delay=settings.gotenberg.wait_delay,
+            ).asend(client)
+        return screenshot_bytes
+    except GotenbergServerError as e:
+        print(f"Screenshot error: {e}")
+        return None
+
+
+async def upload_screen_s3(screenshot_bytes, settings, filename: str = "index.png"):
+    session = aioboto3.Session()
+    config = AioConfig(
+        max_pool_connections=settings.s3.max_pool_connections,
+        connect_timeout=settings.s3.connect_timeout,
+        read_timeout=settings.s3.read_timeout,
+    )
+    async with session.client(
+        "s3",
+        endpoint_url=settings.s3.endpoint_url,
+        aws_access_key_id=settings.s3.access_key,
+        aws_secret_access_key=settings.s3.secret_key,
+        config=config,
+        ) as client:
+        await client.put_object(
+            Bucket=settings.s3.bucket,
+            Key=filename,
+            Body=screenshot_bytes,
+            ContentType="image/png",
+            ContentDisposition="inline",
+        )
+
+
+def get_site_urls(settings, filename: str = "index.html", screen: str = "index.png"):
+    base = furl(f"{settings.s3.endpoint_url}/{settings.s3.bucket}/{filename}")
+    view_url = str(base)
+    download = base.copy()
+    download.args["response-content-disposition"] = "attachment"
+    screenshot_url = f"{settings.s3.endpoint_url}/{settings.s3.bucket}/{screen}"
+    return view_url, str(download), screenshot_url
+
+
 @app.get(
     "/frontend-api/users/me",
     response_model=UserProfile,
@@ -135,18 +210,20 @@ def mock_authorized_user():
 
 
 @app.get("/frontend-api/sites/my", response_model=SitesListResponse, summary="Список сайтов пользователя")
-def mock_my_sites():
+def mock_my_sites(http_request: Request):
+    last = getattr(http_request.app.state, "last_generated", {})
+    view_url, download_url, screenshot_url = get_site_urls(http_request.app.state.settings)
     return SitesListResponse(
         sites=[
             {
-                "createdAt": "2025-06-15T18:29:56+00:00",
-                "htmlCodeDownloadUrl": "/media/download/index.html",
-                "htmlCodeUrl": "/media/index.html",
+                "createdAt": last.get("created_at", "2025-06-15T18:29:56+00:00"),
+                "htmlCodeDownloadUrl": download_url,
+                "htmlCodeUrl": view_url,
                 "id": 1,
-                "prompt": "Сайт любителей играть в домино",
-                "screenshotUrl": "/media/index.png",
-                "title": "Фан клуб Домино",
-                "updatedAt": "2025-06-15T18:29:56+00:00"
+                "prompt": last.get("prompt", "Не сгенерирован"),
+                "screenshotUrl": screenshot_url,
+                "title": last.get("title", "Без названия"),
+                "updatedAt": last.get("updated_at", "2025-06-15T18:29:56+00:00")
             }
         ]
     )
@@ -160,15 +237,15 @@ def mock_my_sites():
 )
 def mock_get_site(site_id: int, http_request: Request):
     last = getattr(http_request.app.state, "last_generated", {})
-    ts = getattr(http_request.app.state, "last_generation_ts", 0)
+    view_url, download_url, screenshot_url = get_site_urls(http_request.app.state.settings)
 
     mock_site_data = {
-        "createdAt": last.get("created_at", "2025-06-15T18:29:56+00:00"),
-        "htmlCodeDownloadUrl": "/media/download/index.html",
-        "htmlCodeUrl": f"/media/index.html?v={ts}",
+        "createdAt": last.get("created_at", "Вовремя"),
+        "htmlCodeDownloadUrl": download_url,
+        "htmlCodeUrl": view_url,
         "id": site_id,
         "prompt": last.get("prompt", "Сайт не сгенерирован"),
-        "screenshotUrl": "/media/index.png",
+        "screenshotUrl": screenshot_url,
         "title": last.get("title", "Без названия"),
         "updatedAt": last.get("updated_at", "2025-06-15T18:29:56+00:00"),
     }
@@ -181,34 +258,43 @@ def mock_get_site(site_id: int, http_request: Request):
     summary="Информация о созданном сайте",
     response_description="Создать сайт"
 )
-def mock_create_site(request: CreateSiteRequest):
+def mock_create_site(request: CreateSiteRequest, http_request: Request):
+    last = getattr(http_request.app.state, "last_generated", {})
+    view_url, download_url, screenshot_url = get_site_urls(http_request.app.state.settings)
     mock_site_data = {
         "createdAt": "2025-06-15T18:29:56+00:00",
-        "htmlCodeDownloadUrl": "http://127.0.0.1:8000/media/index.html?response-content-disposition=attachment",
-        "htmlCodeUrl": "http://127.0.0.1:8000/media/index.html",
-        "id": 37,
+        "htmlCodeDownloadUrl": download_url,
+        "htmlCodeUrl": view_url,
+        "id": 1,
         "prompt": request.prompt,
-        "screenshotUrl": "https://google.com",
-        "title": "dfgdfssdfh",
-        "updatedAt": "2025-06-15T18:29:56+00:00"
+        "screenshotUrl": screenshot_url,
+        "title": last.get("title", "Новый сайт"),
+        "updatedAt": last.get("updated_at", "2025-06-15T18:29:56+00:00")
     }
     return CreateSiteResponse.model_validate(mock_site_data)
 
 
 async def generate_chunks(prompt: str, debug: bool, request: Request):
     generator = AsyncPageGenerator(debug_mode=debug)
-    try:
-        async for chunk in generator(prompt):
-            yield chunk
-    except asyncio.CancelledError:
-        print("Генерация прервана клиентом")
-        raise
-    except Exception as e:
-        yield f"\n[ОШИБКА] {type(e).__name__}: {e}\n"
-        return
     with anyio.CancelScope(shield=True):
-        output_path = MEDIA_DIR / "index.html"
-        output_path.write_text(generator.html_page.html_code, encoding="utf-8")
+        try:
+            async for chunk in generator(prompt):
+                yield chunk
+        except asyncio.CancelledError:
+            print("Клиент отключился, продолжается генерация")
+        except Exception as e:
+            yield f"\n[ОШИБКА] {type(e).__name__}: {e}\n"
+            return
+        await upload_html_s3(generator.html_page.html_code, request.app.state.settings)
+        screenshot_bytes = await take_screenshot(
+            generator.html_page.html_code,
+            request.app.state.settings,
+        )
+        if screenshot_bytes:
+            await upload_screen_s3(
+                screenshot_bytes,
+                request.app.state.settings,
+            )
         request.app.state.last_generated = {
             "title": generator.html_page.title or "Без названия",
             "prompt": prompt,
@@ -232,5 +318,4 @@ async def mock_generate_site(site_id: int, payload: GenerateHTMLRequest, request
     )
 
 
-app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
