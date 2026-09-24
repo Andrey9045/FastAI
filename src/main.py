@@ -1,8 +1,7 @@
 import asyncio
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import Annotated
+from datetime import datetime, timezone
 
 import aioboto3
 import anyio
@@ -14,10 +13,9 @@ from fastapi.staticfiles import StaticFiles
 from furl import furl
 from gotenberg_api import GotenbergServerError, ScreenshotHTMLRequest
 from html_page_generator import AsyncDeepseekClient, AsyncPageGenerator, AsyncUnsplashClient
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
-from pydantic.alias_generators import to_camel
 
 from env_settings import AppSettings
+from models import CreateSiteRequest, CreateSiteResponse, GenerateHTMLRequest, SitesListResponse, UserProfile
 
 
 @asynccontextmanager
@@ -39,88 +37,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, title="My FastAI", description="API для генерации")
 
-SiteTitle = Annotated[str, StringConstraints(max_length=100)]
-
-
-class UserProfile(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-        json_schema_extra={
-            "examples": [
-
-                {
-                    "email": "example@example.com",
-                    "isActive": True,
-                    "profileId": "1",
-                    "registeredAt": "2025-06-15T18:29:56+00:00",
-                    "updatedAt": "2025-06-15T18:29:56+00:00",
-                    "username": "user123"
-                }
-            ]
-        })
-    email: EmailStr
-    is_active: Annotated[bool, "Авторизованный/Неавторизованный пользователь"]
-    profile_id: Annotated[str, "ID профиля"]
-    registered_at: Annotated[datetime, "Время регистрации"]
-    updated_at: Annotated[datetime, "Время обновления"]
-    username: Annotated[str, StringConstraints(max_length=20)]
-
-
-class CreateSiteRequest(BaseModel):
-    prompt: Annotated[str, "Промт"]
-
-
-class GenerateHTMLRequest(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-        json_schema_extra={
-            "examples": [
-                {
-                    "prompt": "Сайт любителей играть в домино",
-                }
-            ]
-        })
-    prompt: Annotated[str, "Промт"]
-
-
-class CreateSiteResponse(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-        json_schema_extra={
-            "examples": [
-                {
-                    "createdAt": "2025-06-15T18:29:56+00:00",
-                    "htmlCodeDownloadUrl": "http://127.0.0.1:8000/media/index.html?response-content-disposition=attachment",
-                    "htmlCodeUrl": "http://127.0.0.1:8000/media/index.html",
-                    "id": 1,
-                    "prompt": "Сайт любителей играть в домино",
-                    "screenshotUrl": "/media/index.png",
-                    "title": "Фан клуб Домино",
-                    "updatedAt": "2025-06-15T18:29:56+00:00"
-                }
-            ]
-        })
-    created_at: Annotated[datetime, "Время создания"]
-    html_code_download_url: SiteTitle
-    html_code_url: SiteTitle
-    id: Annotated[int, Field(gt=0, description="ID сайта")]
-    prompt: Annotated[str, "Промт"]
-    screenshot_url: SiteTitle
-    title: Annotated[str, "Заголовок"]
-    updated_at: Annotated[datetime, "Время обновления"]
-
-
-class SitesListResponse(BaseModel):
-    sites: list[CreateSiteResponse]
-
 
 async def upload_html_s3(html_code: str, settings, filename: str = "index.html"):
     session = aioboto3.Session()
     config = AioConfig(
-        max_pool_connections=settings.s3.max_pool_connections,
+        max_pool_connections=settings.s3.max_connections,
         connect_timeout=settings.s3.connect_timeout,
         read_timeout=settings.s3.read_timeout,
     )
@@ -161,7 +82,7 @@ async def take_screenshot(html_code: str, settings):
 async def upload_screen_s3(screenshot_bytes, settings, filename: str = "index.png"):
     session = aioboto3.Session()
     config = AioConfig(
-        max_pool_connections=settings.s3.max_pool_connections,
+        max_pool_connections=settings.s3.max_connections,
         connect_timeout=settings.s3.connect_timeout,
         read_timeout=settings.s3.read_timeout,
     )
@@ -197,12 +118,13 @@ def get_site_urls(settings, filename: str = "index.html", screen: str = "index.p
     response_description="Пользователь"
 )
 def mock_authorized_user():
+    now = datetime.now(timezone.utc)
     mock_user_data = {
         "email": "example@example.com",
         "isActive": True,
         "profileId": "1",
-        "registeredAt": "2025-06-15T18:29:56+00:00",
-        "updatedAt": "2025-06-15T18:29:56+00:00",
+        "registeredAt": now,
+        "updatedAt": now,
         "username": "user123"
     }
 
@@ -213,17 +135,18 @@ def mock_authorized_user():
 def mock_my_sites(http_request: Request):
     last = getattr(http_request.app.state, "last_generated", {})
     view_url, download_url, screenshot_url = get_site_urls(http_request.app.state.settings)
+    now = datetime.now(timezone.utc)
     return SitesListResponse(
         sites=[
             {
-                "createdAt": last.get("created_at", "2025-06-15T18:29:56+00:00"),
+                "createdAt": last.get("created_at", now),
                 "htmlCodeDownloadUrl": download_url,
                 "htmlCodeUrl": view_url,
                 "id": 1,
                 "prompt": last.get("prompt", "Не сгенерирован"),
                 "screenshotUrl": screenshot_url,
                 "title": last.get("title", "Без названия"),
-                "updatedAt": last.get("updated_at", "2025-06-15T18:29:56+00:00")
+                "updatedAt": last.get("updated_at", now)
             }
         ]
     )
@@ -238,16 +161,16 @@ def mock_my_sites(http_request: Request):
 def mock_get_site(site_id: int, http_request: Request):
     last = getattr(http_request.app.state, "last_generated", {})
     view_url, download_url, screenshot_url = get_site_urls(http_request.app.state.settings)
-
+    now = datetime.now(timezone.utc)
     mock_site_data = {
-        "createdAt": last.get("created_at", "Вовремя"),
+        "createdAt": last.get("created_at", now),
         "htmlCodeDownloadUrl": download_url,
         "htmlCodeUrl": view_url,
         "id": site_id,
         "prompt": last.get("prompt", "Сайт не сгенерирован"),
         "screenshotUrl": screenshot_url,
         "title": last.get("title", "Без названия"),
-        "updatedAt": last.get("updated_at", "2025-06-15T18:29:56+00:00"),
+        "updatedAt": last.get("updated_at", now),
     }
     return CreateSiteResponse.model_validate(mock_site_data)
 
@@ -261,15 +184,16 @@ def mock_get_site(site_id: int, http_request: Request):
 def mock_create_site(request: CreateSiteRequest, http_request: Request):
     last = getattr(http_request.app.state, "last_generated", {})
     view_url, download_url, screenshot_url = get_site_urls(http_request.app.state.settings)
+    now = datetime.now(timezone.utc)
     mock_site_data = {
-        "createdAt": "2025-06-15T18:29:56+00:00",
+        "createdAt": last.get("created_at", now),
         "htmlCodeDownloadUrl": download_url,
         "htmlCodeUrl": view_url,
         "id": 1,
         "prompt": request.prompt,
         "screenshotUrl": screenshot_url,
         "title": last.get("title", "Новый сайт"),
-        "updatedAt": last.get("updated_at", "2025-06-15T18:29:56+00:00")
+        "updatedAt": last.get("updated_at", now)
     }
     return CreateSiteResponse.model_validate(mock_site_data)
 
@@ -295,11 +219,12 @@ async def generate_chunks(prompt: str, debug: bool, request: Request):
                 screenshot_bytes,
                 request.app.state.settings,
             )
+        now = datetime.now(timezone.utc).isoformat()
         request.app.state.last_generated = {
             "title": generator.html_page.title or "Без названия",
             "prompt": prompt,
-            "created_at": "2025-06-15T18:29:56+00:00",
-            "updated_at": "2025-06-15T18:29:56+00:00",
+            "created_at": now,
+            "updated_at": now,
         }
         request.app.state.last_generation_ts = int(time.time())
 
