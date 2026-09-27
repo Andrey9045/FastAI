@@ -75,10 +75,10 @@ S3__ACCESS_KEY=Ключ доступа
 S3__SECRET_KEY=Секретный ключ
 S3__CONNECT_TIMEOUT=Время соединения
 S3__READ_TIMEOUT=Время чтения
-S3__MAC_CONNECTIONS=Максимальное кол-во соед
+S3__MAX_CONNECTIONS=Максимальное кол-во соед
 
 GOTENBERG__URL=https://demo.gotenberg.dev
-GOTENBERG__WIDTCH=1000(Ширина скрина)
+GOTENBERG__WIDTH=1000(Ширина скрина)
 GOTENBERG__FORMAT="png" формат
 GOTENBERG__WAIT_DELAY=время ожидания завершения анимаций на html-странице. Рекомедуемая разница между таймаутом и временем ожидания 2-5сек
 GOTENBERG__TIMEOUT=таймаут
