@@ -1,20 +1,18 @@
-from typing import Optional
-
-from pydantic import Field, SecretStr
+from pydantic import PositiveFloat, PositiveInt, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class DeepSeekSettings(BaseSettings):
     api_key: SecretStr
-    max_connections: Optional[int] = Field(default=None, gt=0)
+    max_connections: PositiveInt = 5
     base_url: str = "https://api.deepseek.com/v1"
     model: str = "deepseek-chat"
 
 
 class UnsplashSettings(BaseSettings):
     api_key: SecretStr
-    max_connections: Optional[int] = Field(default=None, gt=0)
-    timeout: int = Field(default=20, gt=0)
+    max_connections: PositiveInt = 5
+    timeout: PositiveFloat = 20.0
 
 
 class S3Settings(BaseSettings):
@@ -22,17 +20,17 @@ class S3Settings(BaseSettings):
     access_key: str = "minioadmin"
     secret_key: str = "minioadmin"
     bucket: str = "test-fastai"
-    connect_timeout: int = Field(default=5, gt=0)
-    read_timeout: int = Field(default=10, gt=0)
-    max_connections: int = Field(default=5, gt=0)
+    connect_timeout: PositiveFloat = 5.0
+    read_timeout: PositiveFloat = 10.0
+    max_connections: PositiveInt = 5
 
 
-class GotenbergGettings(BaseSettings):
+class GotenbergSettings(BaseSettings):
     url: str = "https://demo.gotenberg.dev"
-    width: int = 1000
+    width: PositiveInt = 1000
     format: str = "png"
-    wait_delay: int = 2
-    timeout: int = 15
+    wait_delay: PositiveFloat = 2.0
+    timeout: PositiveFloat = 15.0
 
 
 class AppSettings(BaseSettings):
@@ -46,4 +44,4 @@ class AppSettings(BaseSettings):
     deepseek: DeepSeekSettings
     unsplash: UnsplashSettings
     s3: S3Settings
-    gotenberg: GotenbergGettings
+    gotenberg: GotenbergSettings
