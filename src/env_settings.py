@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import HttpUrl, PositiveFloat, PositiveInt, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -28,7 +30,7 @@ class S3Settings(BaseSettings):
 class GotenbergSettings(BaseSettings):
     url: HttpUrl = "https://demo.gotenberg.dev"
     width: PositiveInt = 1000
-    format: str = "png"
+    format: Literal["png", "jpeg", "webp"] = "png"
     wait_delay: PositiveFloat = 2.0
     timeout: PositiveFloat = 15.0
 
