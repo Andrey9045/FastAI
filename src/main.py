@@ -1,7 +1,7 @@
 import asyncio
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import aioboto3
 import anyio
@@ -118,7 +118,7 @@ def get_site_urls(settings, filename: str = "index.html", screen: str = "index.p
     response_description="Пользователь"
 )
 def mock_authorized_user():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     mock_user_data = {
         "email": "example@example.com",
         "isActive": True,
@@ -135,7 +135,7 @@ def mock_authorized_user():
 def mock_my_sites(http_request: Request):
     last = getattr(http_request.app.state, "last_generated", {})
     view_url, download_url, screenshot_url = get_site_urls(http_request.app.state.settings)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return SitesListResponse(
         sites=[
             {
@@ -161,7 +161,7 @@ def mock_my_sites(http_request: Request):
 def mock_get_site(site_id: int, http_request: Request):
     last = getattr(http_request.app.state, "last_generated", {})
     view_url, download_url, screenshot_url = get_site_urls(http_request.app.state.settings)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     mock_site_data = {
         "createdAt": last.get("created_at", now),
         "htmlCodeDownloadUrl": download_url,
@@ -184,7 +184,7 @@ def mock_get_site(site_id: int, http_request: Request):
 def mock_create_site(request: CreateSiteRequest, http_request: Request):
     last = getattr(http_request.app.state, "last_generated", {})
     view_url, download_url, screenshot_url = get_site_urls(http_request.app.state.settings)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     mock_site_data = {
         "createdAt": last.get("created_at", now),
         "htmlCodeDownloadUrl": download_url,
@@ -219,7 +219,7 @@ async def generate_chunks(prompt: str, debug: bool, request: Request):
                 screenshot_bytes,
                 request.app.state.settings,
             )
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         request.app.state.last_generated = {
             "title": generator.html_page.title or "Без названия",
             "prompt": prompt,
