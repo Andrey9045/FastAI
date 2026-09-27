@@ -103,7 +103,8 @@ async def upload_screen_s3(screenshot_bytes, settings, filename: str = "index.pn
 
 
 def get_site_urls(settings, filename: str = "index.html", screen: str = "index.png"):
-    base = furl(f"{settings.s3.endpoint_url}/{settings.s3.bucket}/{filename}")
+    endpoint = str(settings.s3.endpoint_url).rstrip("/")
+    base = furl(f"{endpoint}/{settings.s3.bucket}/{filename}")
     view_url = str(base)
     download = base.copy()
     download.args["response-content-disposition"] = "attachment"
