@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
         AsyncUnsplashClient.setup(settings.unsplash.api_key.get_secret_value(), timeout=settings.unsplash.timeout),
         AsyncDeepseekClient.setup(
             settings.deepseek.api_key.get_secret_value(),
-            settings.deepseek.base_url,
+            str(settings.deepseek.base_url),
             settings.deepseek.model
         )
     ):
@@ -47,7 +47,7 @@ async def upload_html_s3(html_code: str, settings, filename: str = "index.html")
     )
     async with session.client(
         "s3",
-        endpoint_url=settings.s3.endpoint_url,
+        endpoint_url=str(settings.s3.endpoint_url),
         aws_access_key_id=settings.s3.access_key,
         aws_secret_access_key=settings.s3.secret_key,
         config=config,
@@ -64,7 +64,7 @@ async def upload_html_s3(html_code: str, settings, filename: str = "index.html")
 async def take_screenshot(html_code: str, settings):
     try:
         async with httpx.AsyncClient(
-            base_url=settings.gotenberg.url,
+            base_url=str(settings.gotenberg.url),
             timeout=settings.gotenberg.timeout,
         ) as client:
             screenshot_bytes = await ScreenshotHTMLRequest(
@@ -88,7 +88,7 @@ async def upload_screen_s3(screenshot_bytes, settings, filename: str = "index.pn
     )
     async with session.client(
         "s3",
-        endpoint_url=settings.s3.endpoint_url,
+        endpoint_url=str(settings.s3.endpoint_url),
         aws_access_key_id=settings.s3.access_key,
         aws_secret_access_key=settings.s3.secret_key,
         config=config,
