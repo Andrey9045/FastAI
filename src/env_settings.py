@@ -1,11 +1,11 @@
-from pydantic import PositiveFloat, PositiveInt, SecretStr
+from pydantic import HttpUrl, PositiveFloat, PositiveInt, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class DeepSeekSettings(BaseSettings):
     api_key: SecretStr
     max_connections: PositiveInt = 5
-    base_url: str = "https://api.deepseek.com/v1"
+    base_url: HttpUrl = "https://api.deepseek.com/v1"
     model: str = "deepseek-chat"
 
 
@@ -16,7 +16,7 @@ class UnsplashSettings(BaseSettings):
 
 
 class S3Settings(BaseSettings):
-    endpoint_url: str = "http://127.0.0.1:9000"
+    endpoint_url: HttpUrl = "http://127.0.0.1:9000"
     access_key: str = "minioadmin"
     secret_key: str = "minioadmin"
     bucket: str = "test-fastai"
@@ -26,7 +26,7 @@ class S3Settings(BaseSettings):
 
 
 class GotenbergSettings(BaseSettings):
-    url: str = "https://demo.gotenberg.dev"
+    url: HttpUrl = "https://demo.gotenberg.dev"
     width: PositiveInt = 1000
     format: str = "png"
     wait_delay: PositiveFloat = 2.0
