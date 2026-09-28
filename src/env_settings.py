@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import HttpUrl, PositiveFloat, PositiveInt, SecretStr
+from pydantic import Field, HttpUrl, PositiveFloat, PositiveInt, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,7 +8,7 @@ class DeepSeekSettings(BaseSettings):
     api_key: SecretStr
     max_connections: PositiveInt = 5
     base_url: HttpUrl = "https://api.deepseek.com/v1"
-    model: str = "deepseek-chat"
+    model: Annotated[str, Field(min_length=1)] = "deepseek-chat"
 
 
 class UnsplashSettings(BaseSettings):
@@ -19,9 +19,9 @@ class UnsplashSettings(BaseSettings):
 
 class S3Settings(BaseSettings):
     endpoint_url: HttpUrl = "http://127.0.0.1:9000"
-    access_key: SecretStr
-    secret_key: SecretStr
-    bucket: str = "test-fastai"
+    access_key: SecretStr = SecretStr("minioadmin")
+    secret_key: SecretStr = SecretStr("minioadmin")
+    bucket: Annotated[str, Field(min_length=1)] = "test-fastai"
     connect_timeout: PositiveFloat = 5.0
     read_timeout: PositiveFloat = 10.0
     max_connections: PositiveInt = 5
