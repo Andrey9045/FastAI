@@ -19,8 +19,8 @@ class UnsplashSettings(BaseSettings):
 
 class S3Settings(BaseSettings):
     endpoint_url: HttpUrl = "http://127.0.0.1:9000"
-    access_key: str = "minioadmin"
-    secret_key: str = "minioadmin"
+    access_key: SecretStr
+    secret_key: SecretStr
     bucket: str = "test-fastai"
     connect_timeout: PositiveFloat = 5.0
     read_timeout: PositiveFloat = 10.0
