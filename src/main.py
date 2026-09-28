@@ -48,8 +48,8 @@ async def upload_html_s3(html_code: str, settings, filename: str = "index.html")
     async with session.client(
         "s3",
         endpoint_url=str(settings.s3.endpoint_url),
-        aws_access_key_id=settings.s3.access_key,
-        aws_secret_access_key=settings.s3.secret_key,
+        aws_access_key_id=settings.s3.access_key.get_secret_value(),
+        aws_secret_access_key=settings.s3.secret_key.get_secret_value(),
         config=config,
     ) as client:
         await client.put_object(
@@ -89,8 +89,8 @@ async def upload_screen_s3(screenshot_bytes, settings, filename: str = "index.pn
     async with session.client(
         "s3",
         endpoint_url=str(settings.s3.endpoint_url),
-        aws_access_key_id=settings.s3.access_key,
-        aws_secret_access_key=settings.s3.secret_key,
+        aws_access_key_id=settings.s3.access_key.get_secret_value(),
+        aws_secret_access_key=settings.s3.secret_key.get_secret_value(),
         config=config,
         ) as client:
         await client.put_object(
@@ -108,7 +108,7 @@ def get_site_urls(settings, filename: str = "index.html", screen: str = "index.p
     view_url = str(base)
     download = base.copy()
     download.args["response-content-disposition"] = "attachment"
-    screenshot_url = f"{settings.s3.endpoint_url}/{settings.s3.bucket}/{screen}"
+    screenshot_url = f"{endpoint}/{settings.s3.bucket}/{screen}"
     return view_url, str(download), screenshot_url
 
 
